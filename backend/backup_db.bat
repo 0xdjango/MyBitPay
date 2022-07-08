@@ -1,0 +1,1 @@
+pg_dump -U postgres --encoding utf8  -f tradingview.sql tradingview
