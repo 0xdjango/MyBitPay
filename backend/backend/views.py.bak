@@ -1,0 +1,393 @@
+from django.shortcuts import render
+import json
+from datetime import timezone
+import datetime
+from django.http import JsonResponse
+import pandas as pd
+from datetime import timedelta
+
+# Create your views here.
+from django.http import HttpResponse
+from backend.models import Symbol, OHLCV, TimeFrame
+
+# based on minutes
+custom_timeframes = [
+    '2',
+    '3',
+    '4'
+]
+
+
+# convert 1m kline to multiplier minutes timeframe.
+def split_list(list_a, chunk_size):
+    for i in range(0, len(list_a), chunk_size):
+        yield list_a[i:i + chunk_size]
+
+
+def m1to(kline_items, multiplier):
+    first_datetime = datetime.datetime.fromtimestamp(kline_items[0][0] / 1000.0, tz=datetime.timezone.utc)
+    start_of_day = first_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+    print(start_of_day.timestamp() * 1000)
+    time_pointer = int(start_of_day.timestamp() * 1000)
+    first_candle_found = False
+    while not first_candle_found:
+        timestamp_arrays = [int(x[0]) for x in kline_items]
+        if int(time_pointer) in timestamp_arrays:
+            # it means we are the start of a proposed minutes ( multiplier * 1m)
+            # remove previous candles for correct formatting of candles.
+            kline_items = kline_items[timestamp_arrays.index(int(time_pointer)):]
+            first_candle_found = True
+
+        else:
+            time_pointer += int(multiplier) * 60 * 1000  # add
+    print(len(kline_items))
+    # find first timestamp of a given series based on 00 time of day.
+    result_kline = []
+    data = split_list(kline_items, int(multiplier))
+    # print(len(list(data)))
+    for new_kline_item in data:
+        # print(new_kline_item)
+        # import time
+        # time.sleep(5)
+        result = [
+            float(new_kline_item[0][0]),
+            float(new_kline_item[0][1]),
+            max([float(x[2]) for x in new_kline_item]),
+            min([float(x[3]) for x in new_kline_item]),
+            float(new_kline_item[-1][4]),
+            sum([float(x[5]) for x in new_kline_item]),
+        ]
+        # we just need to update low high close and volume => timestamp and open is unchanged
+        # ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume', "", "", "", "", "", ""]
+        """for i in new_kline_item[1:]:
+            result[2] = max(float(result[2]),float(i[2]))
+            result[3] = min(float(result[3]),float(i[3]))
+            result[4] = float(i[4])
+            result[5]  =float(result[5])+float(i[5])
+        """
+        # print(result)
+        result_kline.append(result)
+
+    # df = pd.DataFrame(result_kline)
+    # df.columns = ['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume']
+    return result_kline
+
+
+def config(request):
+    response_data = {}
+    response_data['supports_search'] = True
+    response_data['supports_group_request'] = False
+    response_data['supports_marks'] = True
+    response_data['supports_timescale_marks'] = True
+    response_data['supports_time'] = True
+    response_data['supported_resolutions'] = ["1S", "5S", "30S", "1", "2", "5", "15", "60", "240", "1D", "3D", "1W",
+                                              "1M"]
+    response_data['exchanges'] = []
+    response_data['exchanges'].append({"value": "", "name": "All Exchanges", "desc": ""})
+    response_data['exchanges'].append({"value": "Binance", "name": "Binance", "desc": ""})
+    response_data['symbols_types'] = [
+        {"name": "All types", "value": ""},
+        {"name": "Stock", "value": "stock"},
+        {"name": "Crypto", "value": "Crypto"}
+    ]
+    return JsonResponse(response_data)
+
+
+def symbol_info(request, group_name):
+    response_data = {}
+    response_data['symbol'] = ["BTC", "ETH"]
+    response_data['exchange-traded'] = "Binance"
+    response_data['exchange-listed'] = "Binance"
+    response_data['timezone'] = "Asia/Tehran"
+    response_data['minmov'] = 1
+    response_data['minmov2'] = 0
+    response_data['fractional'] = False
+    response_data['pointvalue'] = 1
+    response_data['session'] = "24x7"
+    response_data['has_intraday'] = True
+    response_data['has_no_volume'] = [False, False]
+    response_data['description'] = ["Bitcoin Futures", "Etherium Futures"]
+    response_data['type'] = ["Crypto", "Crypto"]
+    response_data['exchange'] = "Binance"
+    response_data['intraday_multipliers'] = []
+    response_data['has_seconds'] = False
+    response_data['seconds_multipliers'] = []
+    response_data['listed_exchange'] = "Binance"
+    response_data['supported_resolutions'] = ["1S", "5S", "30S", "1", "2", "5", "15", "60", "240", "1D", "3D", "1W",
+                                              "1M"]
+    response_data['pricescale'] = [10, 100]
+    response_data['has_daily'] = False
+    response_data['has_weekly_and_monthly'] = False
+    response_data['has_empty_bars'] = False
+    response_data['force_session_rebuild'] = True
+    response_data['volume_precision'] = 0
+    response_data['data_status'] = "streaming"
+    response_data['expired'] = False
+    response_data['expiration_date'] = 177777777
+    response_data['sector'] = "Crypto"
+    response_data['industry'] = "Crypto"
+    response_data['currency_code'] = "Crypto"
+    response_data['ticker'] = ["BTC", "ETH"]
+
+    return JsonResponse(response_data)
+
+
+def symbols(request, symbol="BTCUSDT"):
+    symbol_data = Symbol.objects.get(symbol=symbol.upper())
+    response_data = {}
+    response_data['name'] = symbol_data.symbol
+    response_data['exchange-traded'] = symbol_data.exchange_traded
+    response_data['exchange-listed'] = symbol_data.exchange_listed
+    response_data['timezone'] = symbol_data.timezone.name
+    response_data['minmov'] = symbol_data.minmovement
+    response_data['minmov2'] = symbol_data.minmovement2
+    response_data['fractional'] = symbol_data.fractional
+    # response_data['pointvalue'] = symbol_data['pointvalue']
+    response_data['session'] = "24x7"
+    response_data['has_intraday'] = symbol_data.has_intraday
+    response_data['has_no_volume'] = symbol_data.has_no_volume
+    response_data['description'] = symbol_data.description
+    response_data['type'] = symbol_data.stype.symbol_type
+    # response_data['exchange'] = symbol_data['exchange']
+    # response_data['intraday_multipliers'] = symbol_data['has_intraday']
+    # response_data['has_seconds'] = False
+    # response_data['seconds_multipliers'] = False
+    # response_data['listed_exchange'] = "Binance"
+    response_data['supported_resolutions'] = ["1S", "5S", "30S", "1", "2", "5", "15", "60", "240", "1D", "3D", "1W",
+                                              "1M"]
+    response_data['pricescale'] = symbol_data.pricescale
+    response_data['has_daily'] = False
+    response_data['has_weekly_and_monthly'] = False
+    response_data['has_empty_bars'] = False
+    response_data['force_session_rebuild'] = True
+    response_data['volume_precision'] = 0
+    response_data['data_status'] = "streaming"
+    response_data['expired'] = False
+    response_data['expiration_date'] = 177777777
+    response_data['sector'] = "Crypto"
+    response_data['industry'] = "Crypto"
+    response_data['currency_code'] = "Crypto"
+    response_data['ticker'] = symbol_data.ticker
+
+    return JsonResponse(response_data)
+
+
+def search(request, query, type, exchange, limit):
+    response_data = []
+    temp_data = {}
+    temp_data['symbol'] = "BTC"
+    temp_data['full_name'] = "Bitcion"
+    temp_data['description'] = "Bitcion Futures"
+    temp_data['exchange'] = "Binance"
+    temp_data['type'] = "Binance"
+    response_data.append(temp_data)
+
+    return JsonResponse(response_data, safe=False)
+
+
+def history(request, symbol="BTCUSDT", time_from=1567968240, time_to=1569874860, resolution="1"):
+    data = OHLCV.objects.filter(symbol__symbol=symbol, open_time__gt=time_from * 1000, open_time__lt=time_to * 1000)
+    open_list = [x.kopen for x in data]
+    high_list = [x.khigh for x in data]
+    low_list = [x.klow for x in data]
+    close_list = [x.kclose for x in data]
+    volume_list = [x.volume for x in data]
+    open_time_list = [x.open_time for x in data]
+    return JsonResponse({"t": open_time_list,
+                         "o": open_list,
+                         "h": high_list,
+                         "l": low_list,
+                         "c": close_list,
+                         "v": volume_list,
+                         "s": "ok"})
+
+
+def quotes(request, s, errmsg, d):
+    return HttpResponse('Hello Django')
+
+
+def marks(request, symbol, time_from, time_to, resolution):
+    return JsonResponse([], safe=False)
+
+
+def time(request):
+    dt = datetime.datetime.now(timezone.utc)
+    utc_time = dt.replace(tzinfo=timezone.utc)
+    utc_timestamp = utc_time.timestamp()
+
+    return JsonResponse(utc_timestamp, safe=False)
+
+
+def timescale_marks(request, symbol, time_from, time_to, resolution):
+    return JsonResponse([], safe=False)
+
+
+def news(request):
+    return HttpResponse('Hello Django')
+
+
+def futuresmag(request):
+    return HttpResponse('Hello Django')
+
+
+def future_klines(request):
+    tfs = {
+        "1": "1m",
+        "5": "5m",
+        "3": "3m",
+        "15": "15m",
+        "30": "30m",
+        "60": "1h",
+        "120": "2h",
+        "240": "4h",
+        "480": "8h",
+        "360": "6h",
+        "720": "12h",
+        "1D": "1d",
+        "3D": "3d",
+        "1W": "1w",
+        "1M": "1M"
+    }
+    try:
+        symbol = request.GET.get('symbol')
+    except Exception as e:
+        return JsonResponse({'error': 'symbol parameter needed.'}, safe=False)
+    try:
+        interval = request.GET.get('interval')
+    except Exception as e:
+        return JsonResponse({'error': 'interval parameter needed.'}, safe=False)
+    # try:
+    #    limit = request.GET.get('limit')
+    # except Exception as e:
+    #    limit=1000
+    try:
+        startTime = request.GET.get('startTime')
+    except Exception as e:
+        return JsonResponse({'error': 'startTime parameter needed.'}, safe=False)
+    try:
+        endTime = request.GET.get('endTime')
+    except Exception as e:
+        return JsonResponse({'error': 'endTime parameter needed.'}, safe=False)
+    # custom time frames are calculated based on 1m data.
+    if interval not in ['2', '4']:
+        candles = OHLCV.objects.filter(
+            symbol__symbol__exact=symbol,
+            tf__timeframe=tfs[interval],
+            open_time__gte=startTime,
+            open_time__lte=endTime
+        )
+    else:
+        candles = OHLCV.objects.filter(
+            symbol__symbol__exact=symbol,
+            tf__timeframe="1m",
+            open_time__gte=startTime,
+            open_time__lte=endTime
+        )  # .order_by('-open_time')[:5000][::-1]
+    klines = []
+    for item in candles:
+        klines.append(
+            [
+                item.open_time,
+                item.kopen,
+                item.khigh,
+                item.klow,
+                item.kclose,
+                item.volume,
+                item.close_time,
+                item.qvolume,
+                "",
+                "",
+                "",
+                ""
+            ]
+        )
+    # if interval not in ['1', '2', '3', '4', '5']:
+    #    res = klines
+    # else:
+    #    res = m1to(klines,interval)
+    return JsonResponse(klines, safe=False)
+    # return JsonResponse({'code': "{} candles available.".format(candles.count())}, safe=False)
+
+
+def spot_klines(request):
+    return JsonResponse([], safe=False)
+
+
+def update_database(request):
+    try:
+
+        symbol = request.GET.get('symbol')
+
+        symbol_obj = Symbol.objects.get(symbol=symbol.upper())
+        tf = request.GET.get('tf')
+
+        tf_obj = TimeFrame.objects.get(timeframe=tf)
+        ktime = request.GET.get('time')
+        kopen = request.GET.get('open')
+        khigh = request.GET.get('high')
+        klow = request.GET.get('low')
+        kclose = request.GET.get('close')
+        kvolume = request.GET.get('volume')
+        print(ktime, kopen, khigh, klow, kclose, kvolume)
+        oh_o, oh_c = OHLCV.objects.update_or_create(
+            symbol=symbol_obj,
+            tf=tf_obj,
+            open_time=ktime,
+        )
+        oh_o.kopen = float(kopen)
+        oh_o.khigh = float(khigh)
+        oh_o.klow = float(klow)
+        oh_o.kclose = float(kclose)
+        oh_o.volume = float(kvolume)
+        oh_o.save()
+        return JsonResponse({'ok': 'symbol parameter udpated.'}, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, safe=False)
+
+
+def exchangeinfo_futures(request):
+    response_data = {}
+    temp_data = {"symbols": []}
+    for sym in Symbol.objects.all():
+        temp_data["symbols"].append(
+            {'symbol': sym.symbol}
+
+        )
+
+    return JsonResponse(temp_data, safe=False)
+
+
+def get_levels(request):
+    response_data = {
+        'data': []
+    }
+    symbol = request.GET.get('symbol')
+    limit = int(request.GET.get('limit'))
+    if limit is None:
+        limit = 10
+    timeframe = request.GET.get('timeframe')  # 1M,1w,1d,4h
+    result = []
+    symbol_obj = Symbol.objects.get(symbol=symbol.upper())
+    tf_obj = TimeFrame.objects.get(timeframe=timeframe)
+    if timeframe in ['1M', '1W', '1D', '240']:
+        monthly_levels = OHLCV.objects.filter(symbol=symbol_obj, tf=tf_obj).order_by('open_time')
+        print(monthly_levels)
+        open_times = list(monthly_levels.values_list('open_time', flat=True))
+        for item in monthly_levels:
+            if open_times.count(item.open_time) > 1:
+                last_id = monthly_levels.filter(open_time=item.open_time).latest('id')
+                it = monthly_levels.get(id=last_id.id)
+
+                result.append("{}:{}".format(it.open_time, it.kopen))
+                result.append("{}:{}".format(it.open_time, it.khigh))
+                result.append("{}:{}".format(it.open_time, it.klow))
+                result.append("{}:{}".format(it.open_time, it.kclose))
+            if open_times.count(item.open_time) == 1:
+                it = item
+                result.append("{}:{}".format(it.open_time, it.kopen))
+                result.append("{}:{}".format(it.open_time, it.khigh))
+                result.append("{}:{}".format(it.open_time, it.klow))
+                result.append("{}:{}".format(it.open_time, it.kclose))
+            result.reverse()
+        response_data['data'] = list(set(result[5:limit * 3]))
+    return JsonResponse(response_data, safe=False)
