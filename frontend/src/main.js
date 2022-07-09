@@ -233,9 +233,9 @@ tvWidget.onChartReady(function () {
                     onSelect: () => {
                         var price_range = tvWidget.activeChart().getVisiblePriceRange();
                         var time_range = tvWidget.activeChart().getVisibleRange();
-                        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+                        var clean_symbol = tvWidget.activeChart().symbol();
                         const urlParameters = {
-                            symbol: tvWidget.activeChart().symbol().split(':')[1],
+                            symbol: tvWidget.activeChart().symbol(),
                             interval: tvWidget.activeChart().resolution(),
                             startTime: time_range.from * 1000,
                             endTime: time_range.to * 1000
@@ -294,9 +294,9 @@ tvWidget.onChartReady(function () {
                     onSelect: () => {
                         var price_range = tvWidget.activeChart().getVisiblePriceRange();
                         var time_range = tvWidget.activeChart().getVisibleRange();
-                        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+                        var clean_symbol = tvWidget.activeChart().symbol();
                         const urlParameters = {
-                            symbol: tvWidget.activeChart().symbol().split(':')[1],
+                            symbol: tvWidget.activeChart().symbol(),
                             interval: tvWidget.activeChart().resolution(),
                             startTime: time_range.from * 1000,
                             endTime: time_range.to * 1000
@@ -356,9 +356,9 @@ tvWidget.onChartReady(function () {
 
                         var price_range = tvWidget.activeChart().getVisiblePriceRange();
                         var time_range = tvWidget.activeChart().getVisibleRange();
-                        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+                        var clean_symbol = tvWidget.activeChart().symbol();
                         const urlParameters = {
-                            symbol: tvWidget.activeChart().symbol().split(':')[1],
+                            symbol: tvWidget.activeChart().symbol(),
                             interval: tvWidget.activeChart().resolution(),
                             startTime: time_range.from * 1000,
                             endTime: time_range.to * 1000
@@ -402,9 +402,9 @@ tvWidget.onChartReady(function () {
                     onSelect: () => {
                         var price_range = tvWidget.activeChart().getVisiblePriceRange();
                         var time_range = tvWidget.activeChart().getVisibleRange();
-                        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+                        var clean_symbol = tvWidget.activeChart().symbol();
                         const urlParameters = {
-                            symbol: tvWidget.activeChart().symbol().split(':')[1],
+                            symbol: tvWidget.activeChart().symbol(),
                             interval: tvWidget.activeChart().resolution(),
                             startTime: time_range.from * 1000,
                             endTime: time_range.to * 1000
@@ -445,9 +445,9 @@ tvWidget.onChartReady(function () {
                     onSelect: () => {
                         var price_range = tvWidget.activeChart().getVisiblePriceRange();
                         var time_range = tvWidget.activeChart().getVisibleRange();
-                        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+                        var clean_symbol = tvWidget.activeChart().symbol();
                         const urlParameters = {
-                            symbol: tvWidget.activeChart().symbol().split(':')[1],
+                            symbol: tvWidget.activeChart().symbol(),
                             interval: tvWidget.activeChart().resolution(),
                             startTime: time_range.from * 1000,
                             endTime: time_range.to * 1000
@@ -471,7 +471,7 @@ tvWidget.onChartReady(function () {
                                         }, {shape: 'icon'}));
                                         l.setProperties(
                                             {
-                                                icon: "0xf05b",
+                                                icon: "0xf177",
                                             }
                                         );
                                     }
@@ -488,9 +488,9 @@ tvWidget.onChartReady(function () {
                     title: 'Show Long Shadows ',
                     onSelect: () => {var price_range = tvWidget.activeChart().getVisiblePriceRange();
                         var time_range = tvWidget.activeChart().getVisibleRange();
-                        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+                        var clean_symbol = tvWidget.activeChart().symbol();
                         const urlParameters = {
-                            symbol: tvWidget.activeChart().symbol().split(':')[1],
+                            symbol: tvWidget.activeChart().symbol(),
                             interval: tvWidget.activeChart().resolution(),
                             startTime: time_range.from * 1000,
                             endTime: time_range.to * 1000
@@ -524,7 +524,114 @@ tvWidget.onChartReady(function () {
 
                         xhr.send();
                     },
-                }
+                },
+                {
+                    title: 'Supply & Demand Zones ',
+                    onSelect: () => {
+                        var price_range = tvWidget.activeChart().getVisiblePriceRange();
+                        var time_range = tvWidget.activeChart().getVisibleRange();
+                        var clean_symbol = tvWidget.activeChart().symbol();
+                        const urlParameters = {
+                            symbol: tvWidget.activeChart().symbol(),
+                            interval: tvWidget.activeChart().resolution(),
+                            startTime: time_range.from * 1000,
+                            endTime: time_range.to * 1000
+
+                        };
+                        const query = Object.keys(urlParameters)
+                            .map(name => `${name}=${encodeURIComponent(urlParameters[name])}`)
+                            .join('&');
+                        var xhr = new XMLHttpRequest();
+                        var url = `http://127.0.0.1:8000/fapi/v1/klines?${query}`;
+
+                        xhr.open("GET", url, true);
+                        xhr.onreadystatechange = function () {
+                            if (this.readyState == 4 && this.status == 200) {
+                                const obj = JSON.parse(this.responseText);
+
+                                //console.log(obj)
+                                /* master or nothing candle followed by a long candle
+                                * the first candle and the second one has different colors
+                                *
+                                * */
+
+                                for (let i = 0; i < obj.length; i++) {
+                                    if(obj[i][8]!="longbar" || obj[i][8]!="spikebar"){
+
+                                        if(obj[i+1][8]=="longbar" || obj[i+1][8]=="spikebar"){
+
+                                            var l = tvWidget.activeChart().getShapeById(tvWidget.activeChart().createShape({
+                                                time: obj[i][0] / 1000,
+                                            }, {shape: 'icon'}));
+                                            l.setProperties(
+                                                {
+                                                    icon: "0xf177",
+                                                }
+                                            );
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+
+                        xhr.send();
+                    },
+                },
+                {
+                    title: 'Supply & Demand Zones ATR(24) ',
+                    onSelect: () => {
+                        var price_range = tvWidget.activeChart().getVisiblePriceRange();
+                        var time_range = tvWidget.activeChart().getVisibleRange();
+                        var clean_symbol = tvWidget.activeChart().symbol();
+                        const urlParameters = {
+                            symbol: tvWidget.activeChart().symbol(),
+                            interval: tvWidget.activeChart().resolution(),
+                            startTime: time_range.from * 1000,
+                            endTime: time_range.to * 1000
+
+                        };
+                        const query = Object.keys(urlParameters)
+                            .map(name => `${name}=${encodeURIComponent(urlParameters[name])}`)
+                            .join('&');
+                        var xhr = new XMLHttpRequest();
+                        var url = `http://127.0.0.1:8000/fapi/v1/klines?${query}`;
+
+                        xhr.open("GET", url, true);
+                        xhr.onreadystatechange = function () {
+                            if (this.readyState == 4 && this.status == 200) {
+                                const obj = JSON.parse(this.responseText);
+
+                                //console.log(obj)
+                                /* master or nothing candle followed by a long candle
+                                * the first candle and the second one has different colors
+                                *
+                                * */
+
+                                for (let i = 0; i < obj.length; i++) {
+                                    if(obj[i][9]!="longbar24" || obj[i][9]!="spikebar24"){
+
+                                        if(obj[i+1][9]=="longbar24" || obj[i+1][9]=="spikebar24"){
+
+                                            var l = tvWidget.activeChart().getShapeById(tvWidget.activeChart().createShape({
+                                                time: obj[i][0] / 1000,
+                                            }, {shape: 'icon'}));
+                                            l.setProperties(
+                                                {
+                                                    icon: "0xf060",
+                                                }
+                                            );
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+
+                        xhr.send();
+                    },
+                },
+
             ],
             icon: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><g fill="none" stroke="currentColor"><circle cx="10" cy="10" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path stroke-linecap="square" d="M17.5 7.5l-7 13"/></g></svg>`,
         }
@@ -668,7 +775,7 @@ tvWidget.onChartReady(function () {
 
 
                     const urlParameters = {
-                        symbol: tvWidget.activeChart().symbol().split(':')[1],
+                        symbol: tvWidget.activeChart().symbol(),
                         interval: tvWidget.activeChart().resolution(),
                         endTime: time * 1000
 
@@ -747,7 +854,7 @@ tvWidget.onChartReady(function () {
                     //  START OLD METHOD
                     /**
                      const urlParameters = {
-                        symbol: tvWidget.activeChart().symbol().split(':')[1],
+                        symbol: tvWidget.activeChart().symbol(),
                         interval: tvWidget.activeChart().resolution(),
                         limit: 500,
                         startTime: 0,
@@ -899,7 +1006,7 @@ tvWidget.onChartReady(function () {
                 text: "Get Trex Info.",
                 click: function() {
                     const urlParameters = {
-                        symbol: tvWidget.activeChart().symbol().split(':')[1],
+                        symbol: tvWidget.activeChart().symbol(),
                         interval: tvWidget.activeChart().resolution(),
                         limit: 500,
                         startTime:0,
@@ -987,7 +1094,7 @@ tvWidget.onChartReady(function () {
     show_monthly_levels.setAttribute('title', 'Show/Hide Monthly Levels.');
     show_monthly_levels.textContent = 'M';
     show_monthly_levels.addEventListener('click', function () {
-        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+        var clean_symbol = tvWidget.activeChart().symbol();
         var price_range = tvWidget.activeChart().getVisiblePriceRange();
 
         //const data = await makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=1M&limit=10&symbol='+clean_symbol);
@@ -1020,7 +1127,7 @@ tvWidget.onChartReady(function () {
     show_weekly_levels.textContent = 'W';
     show_weekly_levels.addEventListener('click', function () {
         var price_range = tvWidget.activeChart().getVisiblePriceRange();
-        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+        var clean_symbol = tvWidget.activeChart().symbol();
         //const data = await makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=1M&limit=10&symbol='+clean_symbol);
         console.log('http://127.0.0.1:8000/get_levels?timeframe=1W&limit=10&symbol=' + clean_symbol)
         const monthly_levels = makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=1W&symbol=' +clean_symbol+"&from="+price_range.from+"&to="+price_range.to);
@@ -1053,7 +1160,7 @@ tvWidget.onChartReady(function () {
     show_daily_levels.textContent = 'D';
     show_daily_levels.addEventListener('click', function () {
         var price_range = tvWidget.activeChart().getVisiblePriceRange();
-        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+        var clean_symbol = tvWidget.activeChart().symbol();
         //const data = await makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=1M&limit=10&symbol='+clean_symbol);
         const monthly_levels = makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=1D&symbol=' + clean_symbol+"&from="+price_range.from+"&to="+price_range.to);
         monthly_levels.then(function (res) {
@@ -1085,7 +1192,7 @@ tvWidget.onChartReady(function () {
     show_4h_levels.setAttribute('title', 'Show/Hide 4h Levels.');
     show_4h_levels.textContent = '4h';
     show_4h_levels.addEventListener('click', function () {
-        var clean_symbol = tvWidget.activeChart().symbol().split(':')[1];
+        var clean_symbol = tvWidget.activeChart().symbol();
         var price_range = tvWidget.activeChart().getVisiblePriceRange();
         //const data = await makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=1M&limit=10&symbol='+clean_symbol);
         const monthly_levels = makeApiRequest('http://127.0.0.1:8000/get_levels?timeframe=240&symbol=' + clean_symbol+"&from="+price_range.from+"&to="+price_range.to);
