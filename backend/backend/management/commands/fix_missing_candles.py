@@ -1,5 +1,6 @@
 # descending red or green candles.
 # candles which use prevoous candles.
+from os import remove
 import os.path
 import requests
 from django.core.management.base import BaseCommand, CommandError
@@ -9,36 +10,48 @@ import sys
 import hashlib
 
 def get_missing_ids(symbol, tf, missing_items):
-    total = len(missing_items)
     try:
         symbol_obj = Symbol.objects.get(symbol=symbol)
         timeframe_obj = TimeFrame.objects.get(timeframe=tf)
         result = []
-        while len(missing_items)>1:
-            #print(len(missing_items))
-            url = "https://fapi.binance.com/fapi/v1/klines?symbol={}&interval={}&limit=1000&startTime=".format(symbol.upper(),tf,missing_items[0])
+        finished = False
+        while not finished:
+            print("remaining items: ",len(missing_items),end="\r")
+            first_len = len(missing_items)
+            url = "https://fapi.binance.com/fapi/v1/klines?symbol={}&interval={}&limit=1000&startTime={}".format(symbol.upper(),tf,missing_items[0])
+            print(url)
             data = requests.get(url).json()
-            
-            for idx,item in enumerate(data):
-                #result.append(item) # ts open high low close volume
-                x=tf+symbol +str(item[0])
-                print(str(idx)+"/"+str(len(missing_items)),end="\r")
-                result.append(
-                    OHLCV(
-                        symbol=symbol_obj,
-                        tf=timeframe_obj,
-                        open_time=item[0],
-                        kopen=item[1],
-                        khigh=item[2],
-                        klow=item[3],
-                        kclose=item[4],
-                        volume=item[5],
-                        xhash=hashlib.sha256(x.encode()).hexdigest()    
-                    )
-                )
-            open_times = [x[0] for x in data]
-            print(len(missing_items))
-            missing_items = list(set(missing_items)-set(open_times))
+            if len(data)!=0:
+                for idx,item in enumerate(data):
+                    #result.append(item) # ts open high low close volume
+                    x=tf+symbol +str(item[0])
+                    
+                    if(item[0] in missing_items):
+                        #print(item)
+                        result.append(
+                            OHLCV(
+                                symbol=symbol_obj,
+                                tf=timeframe_obj,
+                                open_time=item[0],
+                                kopen=item[1],
+                                khigh=item[2],
+                                klow=item[3],
+                                kclose=item[4],
+                                volume=item[5],
+                                xhash=hashlib.sha256(x.encode()).hexdigest()    
+                            )
+                        )
+                        missing_items.remove(item[0])
+                    #print(first_len, len(missing_items))
+                    if(first_len == len(missing_items)):
+                        finished = True
+            else:
+                finished = True
+            if len(missing_items)==0:
+                finished= True
+
+                
+            #print(s"+str(len(missing_items)),end="\r")
         return result
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -62,7 +75,6 @@ tfs = {"1m":1 ,
 }
 class Command(BaseCommand):
     help = 'fix all reptitive candles with newest one.'
-
     def add_arguments(self, parser):
         pass
 
